@@ -59,40 +59,28 @@
           <div class="section-title"><span class="section-num">01</span><span class="section-text">IMAGE INPUT</span></div>
           <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="拖拽或点击上传图片">
             <div class="drop-content" id="dropContent">
-              <div class="drop-icon"><i data-lucide="scan-line"></i></div>
               <h2 data-i18n="dropTitle">请拖拽或点击上传图片</h2>
-              <p>JPG · JPEG · PNG · WEBP</p>
-              <span class="drop-hint" data-i18n="dropHint">图片只在当前浏览器中处理，不会自动上传</span>
             </div>
             <div class="preview-wrap" id="previewWrap" hidden>
               <div class="preview-stage">
                 <img id="previewImage" alt="当前图片预览" />
-                <div class="preview-overlay"><span id="previewMeta">--</span><span class="preview-change" data-i18n="replace">点击替换</span></div>
               </div>
             </div>
-          </div>
-          <div class="file-strip" id="fileStrip" hidden>
-            <div class="file-icon"><i data-lucide="image"></i></div>
-            <div class="file-details"><strong id="fileName">--</strong><span id="fileInfo">--</span></div>
-            <button class="icon-button" id="clearFileBtn" type="button" title="移除当前图片"><i data-lucide="x"></i></button>
           </div>
         </section>
 
         <section class="exif-panel panel" aria-label="EXIF 信息">
           <div class="panel-heading">
             <div class="section-title"><span class="section-num">02</span><span class="section-text">METADATA(EXIF)</span></div>
-            <span class="status-dot" id="exifStatus" data-state="idle" data-status-key="waiting">等待图片</span>
           </div>
           <div class="table-wrap">
             <table class="exif-table"><thead><tr><th data-i18n="tableEnglish">Field Name / 字段名称</th><th data-i18n="tableChinese">Chinese Name / 中文名称</th><th data-i18n="tableValue">Value / 值</th></tr></thead><tbody id="exifBody"></tbody></table>
           </div>
-          <p class="table-note" id="exifNote" data-note-key="exifIntro">选择一张图片后，浏览器会在本地读取可用的 EXIF 信息。</p>
         </section>
 
         <section class="copy-panel panel" aria-label="文案生成器">
           <div class="panel-heading copy-heading">
             <div class="section-title"><span class="section-num">03</span><span class="section-text">WRITING</span></div>
-            <span class="copy-state" id="copyState" data-status-key="ready">准备就绪</span>
           </div>
           <div class="copy-workspace">
             <div class="generation-actions" role="group" aria-label="文案生成模式">
@@ -108,9 +96,13 @@
               </div>
             </div>
           </div>
-          <footer class="copyright">2026 PBL: 拾光101 · Exif&amp;Sonnet Module <span>Special Adapted Version For Snap Snap club 摄影社</span><br /><b>陈禹翔 Lambert · 孙昊跃 Jude</b></footer>
         </section>
       </main>
+      <footer class="copyright page-copyright">
+        <span data-i18n="copyrightHead">2026 PBL: 拾光101 · Exif&amp;Sonnet Module</span>
+        <span data-i18n="copyrightTail">Special Adapted Version For Snap Snap club 摄影社</span>
+        <b data-i18n="authorLine">陈禹翔 Lambert · 孙昊跃 Jude</b>
+      </footer>
     </div>
 
     <dialog class="modal" id="batchModal">

@@ -274,17 +274,9 @@
     dropContent: $("dropContent"),
     previewWrap: $("previewWrap"),
     previewImage: $("previewImage"),
-    previewMeta: $("previewMeta"),
-    fileStrip: $("fileStrip"),
-    fileName: $("fileName"),
-    fileInfo: $("fileInfo"),
-    clearFileBtn: $("clearFileBtn"),
     exifBody: $("exifBody"),
-    exifStatus: $("exifStatus"),
-    exifNote: $("exifNote"),
     copyOutput: $("copyOutput"),
     copyBtn: $("copyBtn"),
-    copyState: $("copyState"),
     loadingState: $("loadingState"),
     stopGenerationBtn: $("stopGenerationBtn"),
     toast: $("toast"),
@@ -407,12 +399,6 @@
     toastTimer = window.setTimeout(() => els.toast.classList.remove("show"), 3400);
   }
 
-  function setStatus(el, key) {
-    el.dataset.state = key;
-    el.textContent = t(key);
-    if (el === els.copyState) el.classList.toggle("error", key === "failed");
-  }
-
   function setTextByKey(selector, key) {
     document.querySelectorAll(selector).forEach((node) => {
       const value = t(key);
@@ -433,7 +419,6 @@
     els.batchBtn.title = state.lang === "en" ? "Batch-process multiple images" : "批量处理多张图片";
     els.themeToggle.title = state.lang === "en" ? "Switch between light and dark mode" : "切换浅色或深色模式";
     els.languageToggle.title = state.lang === "en" ? "Switch between Chinese and English" : "切换中文或英文";
-    els.clearFileBtn.title = state.lang === "en" ? "Remove the current image" : "移除当前图片";
     els.copyBtn.title = state.lang === "en" ? "Copy the generated copy" : "复制文案";
     els.stopGenerationBtn.title = state.lang === "en" ? "Stop this generation" : "强制结束此次生成";
     document.querySelectorAll(".icon-button[value='cancel']").forEach((button) => {
@@ -505,13 +490,7 @@
   }
 
   function syncDynamicText() {
-    setStatus(els.exifStatus, els.exifStatus.dataset.state || "waiting");
-    setStatus(els.copyState, els.copyState.dataset.state || "ready");
     els.batchFileLabel.textContent = els.batchInput.files.length ? t("batchSelectedFiles", { count: els.batchInput.files.length }) : t("noFiles");
-  }
-
-  function setExifNote(key, vars = {}) {
-    els.exifNote.textContent = t(key, vars);
   }
 
   function setBatchMessage(keyOrText, error = false, vars = {}, translated = true) {
@@ -606,13 +585,9 @@
     els.fileInput.value = "";
     els.previewWrap.hidden = true;
     els.dropContent.hidden = false;
-    els.fileStrip.hidden = true;
     els.copyOutput.value = "";
+    els.copyOutput.classList.remove("error");
     els.copyBtn.disabled = true;
-    setStatus(els.copyState, "ready");
-    els.copyState.textContent = t("readyCopy");
-    setStatus(els.exifStatus, "waiting");
-    setExifNote("exifIntro");
     renderRows(makeRows({}, { type: "" }, {}));
     setProcessButtons(false);
   }
@@ -694,8 +669,6 @@
   }
 
   async function parseExif(file, silent = false) {
-    setStatus(els.exifStatus, "loading");
-    setExifNote("exifIntro");
     try {
       if (!window.exifr?.parse) throw new Error("exifr unavailable");
       state.dimensions = await getDimensions(file);
@@ -710,8 +683,6 @@
       state.exif = data || {};
       state.rows = makeRows(state.exif, file, state.dimensions);
       renderRows(state.rows);
-      setStatus(els.exifStatus, "ready");
-      setExifNote("exifParsed", { count: state.rows.length });
       setProcessButtons(true);
       return true;
     } catch {
@@ -719,8 +690,6 @@
       state.dimensions = state.dimensions || {};
       state.rows = makeRows({}, file, state.dimensions);
       renderRows(state.rows);
-      setStatus(els.exifStatus, "error");
-      setExifNote("exifFailed");
       setProcessButtons(true);
       els.exportExifBtn.disabled = true;
       if (!silent) showToast(t("toastExifReadFail"));
@@ -741,10 +710,6 @@
     els.previewImage.src = state.imageUrl;
     els.previewWrap.hidden = false;
     els.dropContent.hidden = true;
-    els.fileStrip.hidden = false;
-    els.fileName.textContent = file.name;
-    els.fileInfo.textContent = t("fileReady", { name: file.name, size: formatBytes(file.size) });
-    els.previewMeta.textContent = t("fileReady", { name: file.name, size: formatBytes(file.size) });
     await parseExif(file);
   }
 
@@ -892,9 +857,8 @@
     state.generation = true;
     state.copy = "";
     els.copyOutput.value = "";
+    els.copyOutput.classList.remove("error");
     els.loadingState.hidden = false;
-    setStatus(els.copyState, "generating");
-    els.copyState.classList.remove("error");
     setProcessButtons(false);
     state.controller = new AbortController();
 
@@ -903,14 +867,13 @@
       if (!result) throw new Error(t("toastApiEmpty"));
       state.copy = result;
       els.copyOutput.value = result;
+      els.copyOutput.classList.remove("error");
       els.copyBtn.disabled = false;
-      setStatus(els.copyState, "generated");
     } catch (error) {
       if (error.name === "AbortError") {
-        setStatus(els.copyState, "ended");
         if (!els.copyOutput.value) els.copyOutput.value = state.lang === "en" ? "This generation was stopped." : "本次生成已被结束。";
       } else {
-        setStatus(els.copyState, "failed");
+        els.copyOutput.classList.add("error");
         els.copyOutput.value = error.message || t("toastGenerateFail");
         showToast(error.message || t("toastGenerateFail"));
       }
@@ -1071,12 +1034,6 @@
     saveSetting(STORAGE_KEYS.lang, state.lang);
     renderStaticCopy();
     refreshLanguageAwareContent();
-    if (!state.file) {
-      setStatus(els.exifStatus, "waiting");
-      els.copyState.dataset.state = "ready";
-      els.copyState.textContent = t("readyCopy");
-      setExifNote("exifIntro");
-    }
   }
 
   function setTheme(theme) {
@@ -1109,7 +1066,6 @@
     });
     els.dropZone.addEventListener("drop", (event) => loadFile(event.dataTransfer.files[0]));
 
-    els.clearFileBtn.addEventListener("click", clearCurrent);
     els.refreshExifBtn.addEventListener("click", () => state.file && parseExif(state.file));
     els.exportExifBtn.addEventListener("click", exportExif);
     els.exportCopyBtn.addEventListener("click", exportCopy);
