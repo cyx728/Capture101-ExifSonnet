@@ -1,0 +1,8 @@
+name = "exifsonnet-api"
+main = "worker.js"
+compatibility_date = "2026-08-03"
+workers_dev = true
+
+[vars]
+# GitHub Pages origin plus the local static-server origin used for development.
+ALLOWED_ORIGIN = "https://cyx728.github.io,http://localhost:4173"

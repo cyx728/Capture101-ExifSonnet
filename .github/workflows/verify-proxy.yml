@@ -1,0 +1,58 @@
+name: Verify ExifSonnet proxy
+
+on:
+  push:
+    branches: [api-verify]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public CORS and SSE flow
+        env:
+          PROXY_URL: https://exifsonnet-api.xif-onnet.workers.dev/v1/chat/completions
+          ORIGIN: https://cyx728.github.io
+        run: |
+          node <<'NODE'
+          const url = process.env.PROXY_URL;
+          const origin = process.env.ORIGIN;
+          const preflight = await fetch(url, {
+            method: "OPTIONS",
+            headers: {
+              Origin: origin,
+              "Access-Control-Request-Method": "POST",
+              "Access-Control-Request-Headers": "content-type"
+            },
+            signal: AbortSignal.timeout(30000)
+          });
+          const allowedOrigin = preflight.headers.get("access-control-allow-origin");
+          console.log(`preflight status=${preflight.status} allow-origin=${allowedOrigin}`);
+          if (preflight.status !== 204 || allowedOrigin !== origin) process.exit(1);
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { Origin: origin, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: [{ role: "user", content: "请只输出：API 测试通过" }]
+            }),
+            signal: AbortSignal.timeout(60000)
+          });
+          console.log(`post status=${response.status} content-type=${response.headers.get("content-type")}`);
+          if (!response.ok || !response.body) {
+            console.log((await response.text()).slice(0, 500));
+            process.exit(1);
+          }
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let output = "";
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            output += decoder.decode(value, { stream: true });
+          }
+          console.log(`sse bytes=${Buffer.byteLength(output)} done=${output.includes("data: [DONE]")}`);
+          if (!output.includes("data: [DONE]")) process.exit(1);
+          NODE
