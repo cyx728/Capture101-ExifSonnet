@@ -35,7 +35,7 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .4; }
 .app-shell { width: 100%; height: 100dvh; min-height: 100dvh; margin: 0; padding: 0 22px 14px; display: flex; flex-direction: column; }
 .topbar { min-height: 60px; padding: 10px 0 8px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); }
-.brand-block { display: flex; gap: 16px; align-items: center; }
+.brand-block { min-width: 0; display: flex; flex: 1 1 auto; gap: 16px; align-items: center; }
 .brand-mark { display: grid; grid-template-columns: repeat(3, 7px); align-items: end; gap: 4px; width: 30px; height: 32px; padding: 5px 6px; border: 1px solid var(--line-strong); border-radius: 9px; }
 .brand-mark span { display: block; background: var(--accent); border-radius: 3px 3px 1px 1px; }
 .brand-mark span:nth-child(1) { height: 10px; opacity: .65; }.brand-mark span:nth-child(2) { height: 17px; }.brand-mark span:nth-child(3) { height: 23px; opacity: .75; }
@@ -44,7 +44,7 @@ h1, h2, p { margin-block-start: 0; }
 h1 { margin: 2px 0 0; font: 700 clamp(24px, 2.7vw, 39px)/1 Georgia, "Noto Sans SC", serif; letter-spacing: .02em; }
 h1 span { color: var(--accent); font-style: italic; }
 .subtitle { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
-.toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; max-width: 850px; }
+.toolbar { min-width: 0; display: flex; flex: 0 1 850px; flex-wrap: wrap; justify-content: flex-end; gap: 7px; max-width: 850px; }
 .tool-button, .primary-button, .secondary-button, .mode-button, .copy-action, .icon-button { border: 1px solid var(--line); color: var(--ink); background: var(--control); transition: .2s ease; }
 .tool-button { min-height: 32px; padding: 6px 9px; display: inline-flex; align-items: center; gap: 7px; border-radius: 9px; color: var(--muted); font-size: 11px; }
 .tool-button:hover:not(:disabled), .secondary-button:hover:not(:disabled) { color: var(--ink); border-color: var(--line-strong); background: var(--control-hover); }
