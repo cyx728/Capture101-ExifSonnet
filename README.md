@@ -1,6 +1,6 @@
 # Exif&Sonnet
 
-`Exif&Sonnet` 是一个部署到 GitHub Pages 的纯前端图片 EXIF 阅读与摄影文案工具。图片解析、预览、XLSX 导出和 ZIP 打包均在浏览器本地完成；文案功能通过浏览器调用 OpenAI 兼容的 Chat Completions API。
+`Exif&Sonnet` 是一个部署到 GitHub Pages 的纯前端图片 EXIF 阅读与摄影文案工具。图片解析、预览、XLSX 导出和 ZIP 打包均在浏览器本地完成；生成文案时，浏览器会把筛选后的 EXIF 和本地压缩图像发送到 OpenAI 兼容的 Chat Completions API。
 
 默认界面使用浅色模式，并提供“浅色/深色”和“中文/ENGLISH”两个胶囊切换开关。
 
@@ -11,6 +11,7 @@
 - 导出 `exif_{图片名}.xlsx`、`文案_{图片名}.txt`，或下载 `ExifSonnet_{图片名}.zip`。
 - 批量选择图片，统一使用“不生成文案 / 默认配置 / 随机生成 / 自定义”模式；逐张处理，单张失败不终止批次，最后下载 `ExifSonnet_{时间戳}.zip`。
 - 文案生成支持流式显示、60 秒超时、强制结束、复制和错误显示。
+- 发送前在本地将图像等比压缩为最长边不超过 1600 px、文件不超过约 850 KB 的 JPEG；原图不发送。
 - `config.json` 预留 `prompts.default` 与 `prompts.random`，后续可直接填入两版提示词。
 
 ## 本地运行
@@ -48,7 +49,7 @@ npx --yes serve . -l 4173
 
 `prompts.default` 和 `prompts.random` 分别是默认配置、随机生成两种模式的提示词。它们可以稍后直接填写到 `config.json`，无需修改 `app.js`；留空时程序使用内置兜底提示词。自定义模式的 prompt 只从弹窗读取。
 
-直连模式要求 API 允许 GitHub Pages 来源的 CORS，并兼容 `POST {base_url}/v1/chat/completions`、`model`、`messages`、`temperature`、`stream` 字段和 OpenAI 风格 SSE 流。代理模式由项目内的 `worker.js` 处理 CORS 与 SSE 转发。
+直连模式要求 API 允许 GitHub Pages 来源的 CORS，并兼容 `POST {base_url}/v1/chat/completions`、多模态 `messages[].content` 中的 `text` 与 `image_url`、`temperature`、`stream` 字段和 OpenAI 风格 SSE 流。图像使用 `data:image/jpeg;base64,...` Data URL 发送。代理模式由项目内的 `worker.js` 处理 CORS 与 SSE 转发。
 
 ## Cloudflare Worker 代理部署
 

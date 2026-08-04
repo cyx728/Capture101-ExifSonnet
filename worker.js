@@ -1,4 +1,5 @@
 const UPSTREAM_URL = "https://cdn.juaiapi.com/v1/chat/completions";
+const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
 
 function allowedOrigins(env) {
   return String(env.ALLOWED_ORIGIN || "")
@@ -50,7 +51,7 @@ export default {
     }
 
     const contentLength = Number(request.headers.get("Content-Length") || 0);
-    if (contentLength > 100000) {
+    if (contentLength > MAX_REQUEST_BYTES) {
       return responseWithCors("Request body too large", { status: 413 }, request, env);
     }
 

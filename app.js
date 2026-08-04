@@ -7,6 +7,8 @@
   const STORAGE_KEYS = { theme: "exifsonnet-theme", lang: "exifsonnet-lang" };
   const THEME_COLOR = { light: "#edf3f2", dark: "#08131d" };
   const TIMEOUT_MS = 60000;
+  const MODEL_IMAGE_MAX_EDGE = 1600;
+  const MODEL_IMAGE_MAX_BYTES = 850 * 1024;
 
   const CORE_FIELDS = [
     { group: "File", tag: "FileType", zh: "文件类型", en: "File type" },
@@ -96,7 +98,7 @@
       generatedText: "生成文案",
       copy: "复制",
       dropTitle: "请拖拽或点击上传图片",
-      dropHint: "图片只在当前浏览器中处理，不会自动上传",
+      dropHint: "预览与 EXIF 在本地处理；生成文案时发送本地压缩图像",
       replace: "点击替换",
       captureInfo: "拍摄信息",
       tableEnglish: "Field Name / 字段名称",
@@ -192,7 +194,7 @@
       generatedText: "Generated text",
       copy: "Copy",
       dropTitle: "Drag or click to upload an image",
-      dropHint: "Images stay in this browser and are never uploaded automatically",
+      dropHint: "Preview and EXIF stay local; generation sends a locally compressed image",
       replace: "Replace",
       captureInfo: "Capture details",
       tableEnglish: "Field Name / 字段名称",
@@ -315,6 +317,7 @@
   const state = {
     file: null,
     imageUrl: null,
+    modelImage: null,
     dimensions: null,
     exif: null,
     rows: [],
@@ -592,6 +595,7 @@
     if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
     state.file = null;
     state.imageUrl = null;
+    state.modelImage = null;
     state.dimensions = null;
     state.exif = null;
     state.rows = [];
@@ -659,6 +663,89 @@
       };
       image.src = url;
     });
+  }
+
+  async function decodeImage(file) {
+    if (window.createImageBitmap) {
+      return window.createImageBitmap(file, { imageOrientation: "from-image" });
+    }
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const url = URL.createObjectURL(file);
+      image.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image decode failed"));
+      };
+      image.src = url;
+    });
+  }
+
+  function canvasToBlob(canvas, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Image compression failed"));
+      }, "image/jpeg", quality);
+    });
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error("Image encoding failed"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function compressImageForModel(file) {
+    const image = await decodeImage(file);
+    const sourceWidth = image.width || image.naturalWidth;
+    const sourceHeight = image.height || image.naturalHeight;
+    const initialScale = Math.min(1, MODEL_IMAGE_MAX_EDGE / Math.max(sourceWidth, sourceHeight));
+    let width = Math.max(1, Math.round(sourceWidth * initialScale));
+    let height = Math.max(1, Math.round(sourceHeight * initialScale));
+    let quality = 0.82;
+    let blob;
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Canvas is unavailable");
+
+    try {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        canvas.width = width;
+        canvas.height = height;
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+        blob = await canvasToBlob(canvas, quality);
+        if (blob.size <= MODEL_IMAGE_MAX_BYTES) break;
+
+        if (quality > 0.58) {
+          quality = Math.max(0.58, quality - 0.08);
+        } else {
+          const scale = Math.min(0.9, Math.sqrt(MODEL_IMAGE_MAX_BYTES / blob.size) * 0.92);
+          width = Math.max(1, Math.round(width * scale));
+          height = Math.max(1, Math.round(height * scale));
+          quality = 0.72;
+        }
+      }
+    } finally {
+      if (typeof image.close === "function") image.close();
+    }
+
+    if (!blob || blob.size > MODEL_IMAGE_MAX_BYTES) throw new Error("Image compression failed");
+    return {
+      dataUrl: await blobToDataUrl(blob),
+      width,
+      height,
+      bytes: blob.size
+    };
   }
 
   function getTimeoutSignal(externalSignal, timeoutMs) {
@@ -802,9 +889,10 @@
     return payload?.choices?.[0]?.delta?.content ?? payload?.choices?.[0]?.message?.content ?? payload?.output_text ?? "";
   }
 
-  async function requestCopy(mode, customPrompt, rows = state.rows, signal = null) {
+  async function requestCopy(mode, customPrompt, rows = state.rows, signal = null, imageDataUrl = "") {
     const useProxy = Boolean(state.api?.proxyUrl);
     if (!useProxy && (!state.api?.baseUrl || !state.api?.apiKey)) throw new Error(t("toastApiUnavailable"));
+    if (!imageDataUrl) throw new Error(t("toastGenerateFail"));
     const timeout = getTimeoutSignal(signal, state.api.timeoutMs || TIMEOUT_MS);
     try {
       const requestBase = useProxy ? state.api.proxyUrl : state.api.baseUrl;
@@ -821,7 +909,13 @@
           stream: true,
           messages: [
             { role: "system", content: "你是一位中文摄影文案作者。" },
-            { role: "user", content: buildPrompt(mode, rows, customPrompt) }
+            {
+              role: "user",
+              content: [
+                { type: "text", text: buildPrompt(mode, rows, customPrompt) },
+                { type: "image_url", image_url: { url: imageDataUrl, detail: "auto" } }
+              ]
+            }
           ]
         })
       });
@@ -882,7 +976,8 @@
     state.controller = new AbortController();
 
     try {
-      const result = await requestCopy(mode, customPrompt, state.rows, state.controller.signal);
+      state.modelImage ||= await compressImageForModel(state.file);
+      const result = await requestCopy(mode, customPrompt, state.rows, state.controller.signal, state.modelImage.dataUrl);
       if (!result) throw new Error(t("toastApiEmpty"));
       state.copy = result;
       els.copyOutput.value = result;
@@ -975,7 +1070,10 @@
 
         const rows = makeRows(exif, file, dimensions);
         let copy = "";
-        if (mode !== "none" && exifOk) copy = await requestCopy(mode, customPrompt, rows);
+        if (mode !== "none" && exifOk) {
+          const modelImage = await compressImageForModel(file);
+          copy = await requestCopy(mode, customPrompt, rows, null, modelImage.dataUrl);
+        }
         complete.push({ file, exifOk, rows, copy, base: safeName(baseName(file.name)) });
         success += 1;
       } catch {
