@@ -33,6 +33,19 @@
     { group: "Position", tag: "GPSY", zh: "GPS 经度", en: "GPS longitude" }
   ];
 
+  const PROMPT_EXIF_TAGS = [
+    "CreateDate",
+    "GPSX",
+    "GPSY",
+    "Make",
+    "Model",
+    "LensInfo",
+    "LensModel",
+    "FocalLength",
+    "ISO",
+    "FNumber"
+  ];
+
   const TAG_ALIASES = {
     FileType: ["FileType", "MIMEType"],
     ImageWidth: ["ImageWidth", "ExifImageWidth", "PixelXDimension"],
@@ -544,6 +557,7 @@
       if (item.tag === "ImageWidth") value = dimensions?.width || value;
       if (item.tag === "ImageHeight") value = dimensions?.height || value;
       rows.push({
+        tag: item.tag,
         group: item.group,
         groupLabel: groupLabel(item.group),
         englishLabel: FIELD_LABELS[item.tag]?.en || item.tag,
@@ -556,6 +570,7 @@
     Object.entries(data || {}).forEach(([tag, value]) => {
       if (known.has(tag) || tag.startsWith("GPS") || tag.startsWith("Thumbnail")) return;
       rows.push({
+        tag,
         group: "OtherInfo",
         groupLabel: groupLabel("OtherInfo"),
         englishLabel: tag,
@@ -769,14 +784,18 @@
   }
 
   function buildPrompt(mode, rows, customPrompt = "") {
-    const values = Object.fromEntries(rows.filter((row) => row.value !== PLACEHOLDER).map((row) => [row.tag, row.value]));
+    const rowsByTag = new Map(rows.map((row) => [row.tag, row]));
+    const values = Object.fromEntries(PROMPT_EXIF_TAGS.flatMap((tag) => {
+      const row = rowsByTag.get(tag);
+      return row && row.value !== PLACEHOLDER ? [[tag, row.value]] : [];
+    }));
     const variation = Math.random().toString(36).slice(2, 8);
     const configuredPrompt = mode === "custom" ? customPrompt : state.api?.prompts?.[mode];
     const fallbackPrompt = mode === "random"
       ? "请以随机但克制的文学风格写作，尝试不同的节奏、意象和视角。"
       : "请写一段有文学感、有余韵的中文摄影文案。";
     const intro = configuredPrompt?.trim() || fallbackPrompt;
-    return `${intro}\n\n请根据以下照片 EXIF 信息创作文案：${JSON.stringify(values, null, 2)}\n要求：只输出最终文案文字，不要标题、引号、Markdown、解释或 JSON；内容要具体回应这张照片的拍摄时间与可用信息；本次创作变化标记为 ${variation}，请让结果与之前略有不同。`;
+    return `${intro}\n\n请参考以下照片EXIF信息创作文案：${JSON.stringify(values, null, 2)}\n要求：只输出最终文案文字，不要标题、引号、Markdown、解释或 JSON；内容要具体回应这张照片的拍摄时间与可用信息；本次创作变化标记为 ${variation}，请让结果与之前略有不同。`;
   }
 
   function extractContent(payload) {
